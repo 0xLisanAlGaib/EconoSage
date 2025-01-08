@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console, Vm} from "forge-std/Test.sol";
 import {US_GDP_Q} from "../src/v0.8/econosage/US_GDP_Q.sol";
 import {MockLinkToken} from "@chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
 
@@ -46,7 +46,9 @@ contract US_GDP_QTest is Test {
     function test_RequestUpdate_OnlyOwner() public {
         // Should revert when called by non-owner
         vm.prank(USER);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(
+            abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", USER)
+        );
         gdpOracle.requestGDPUpdate();
 
         // Should succeed when called by owner
@@ -60,7 +62,9 @@ contract US_GDP_QTest is Test {
 
         // Should revert when called by non-owner
         vm.prank(USER);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(
+            abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", USER)
+        );
         gdpOracle.updateOracle(newOracle);
 
         // Should revert with zero address
@@ -78,7 +82,9 @@ contract US_GDP_QTest is Test {
 
         // Should revert when called by non-owner
         vm.prank(USER);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(
+            abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", USER)
+        );
         gdpOracle.updateJobId(newJobId);
 
         // Should revert with zero bytes32
@@ -96,7 +102,9 @@ contract US_GDP_QTest is Test {
 
         // Should revert when called by non-owner
         vm.prank(USER);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(
+            abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", USER)
+        );
         gdpOracle.withdrawLink();
 
         // Should succeed when called by owner
@@ -109,16 +117,21 @@ contract US_GDP_QTest is Test {
     }
 
     function test_FulfillGDPData() public {
-        // Simulate a Chainlink oracle response
-        bytes32 requestId = bytes32("test_request");
+        // Create the request and get the request ID
+        vm.prank(OWNER);
+        bytes32 requestId = gdpOracle.requestGDPUpdate();
+
+        // Prepare test data
         int256 growthRate = 2_500_000_000_000_000_000; // 2.5%
         uint8 quarter = 2;
         uint16 year = 2024;
 
-        vm.prank(ORACLE_ADDRESS);
-        vm.expectEmit(true, true, true, true);
+        // Create expected event data
+        vm.expectEmit(true, true, true, true, address(gdpOracle));
         emit GDPDataUpdated(block.timestamp, growthRate, quarter, year);
 
+        // Execute the fulfill function with the correct request ID
+        vm.prank(ORACLE_ADDRESS);
         gdpOracle.fulfill(requestId, growthRate, quarter, year);
 
         // Verify state updates
@@ -128,13 +141,129 @@ contract US_GDP_QTest is Test {
         assertEq(gdpOracle.lastUpdateTimestamp(), block.timestamp);
     }
 
-    function testFail_FulfillGDPData_InvalidQuarter() public {
-        bytes32 requestId = bytes32("test_request");
+    function test_RevertWhen_FulfillGDPData_InvalidQuarter() public {
+        // Create the request and get the request ID
+        vm.prank(OWNER);
+        bytes32 requestId = gdpOracle.requestGDPUpdate();
+
+        // Prepare test data with invalid quarter
         int256 growthRate = 2_500_000_000_000_000_000; // 2.5%
         uint8 invalidQuarter = 5; // Invalid quarter (must be 1-4)
         uint16 year = 2024;
 
+        // Should revert with invalid quarter
         vm.prank(ORACLE_ADDRESS);
+        vm.expectRevert("Invalid quarter");
         gdpOracle.fulfill(requestId, growthRate, invalidQuarter, year);
+    }
+
+    function test_RevertWhen_InsufficientLinkBalance() public {
+        // Drain LINK balance
+        vm.prank(OWNER);
+        gdpOracle.withdrawLink();
+
+        // Should revert when trying to request without LINK
+        vm.prank(OWNER);
+        vm.expectRevert();
+        gdpOracle.requestGDPUpdate();
+    }
+
+    function test_RevertWhen_UnauthorizedOracleFulfills() public {
+        // Create request
+        vm.prank(OWNER);
+        bytes32 requestId = gdpOracle.requestGDPUpdate();
+
+        // Try to fulfill from unauthorized address
+        vm.prank(USER);
+        vm.expectRevert("Source must be the oracle of the request");
+        gdpOracle.fulfill(requestId, 0, 1, 2024);
+    }
+
+    function test_GrowthRatePrecision() public {
+        // Create request
+        vm.prank(OWNER);
+        bytes32 requestId = gdpOracle.requestGDPUpdate();
+
+        // Test with various precision levels
+        int256 preciseRate = 2_500_000_000_000_000_000; // 2.5% with 18 decimals
+        uint8 quarter = 1;
+        uint16 year = 2024;
+
+        vm.prank(ORACLE_ADDRESS);
+        gdpOracle.fulfill(requestId, preciseRate, quarter, year);
+
+        assertEq(
+            gdpOracle.latestGrowthRate(),
+            preciseRate,
+            "Growth rate precision mismatch"
+        );
+    }
+
+    function test_MultipleUpdates() public {
+        // First update
+        vm.prank(OWNER);
+        bytes32 requestId1 = gdpOracle.requestGDPUpdate();
+        vm.prank(ORACLE_ADDRESS);
+        gdpOracle.fulfill(requestId1, 2_500_000_000_000_000_000, 1, 2024);
+
+        // Store first update timestamp
+        uint256 firstUpdateTime = gdpOracle.lastUpdateTimestamp();
+
+        // Advance block timestamp
+        vm.warp(block.timestamp + 1 hours);
+
+        // Second update
+        vm.prank(OWNER);
+        bytes32 requestId2 = gdpOracle.requestGDPUpdate();
+        vm.prank(ORACLE_ADDRESS);
+        gdpOracle.fulfill(requestId2, 3_100_000_000_000_000_000, 2, 2024);
+
+        // Verify latest data is from second update
+        assertEq(gdpOracle.latestQuarter(), 2, "Quarter not updated");
+        assertEq(
+            gdpOracle.latestGrowthRate(),
+            3_100_000_000_000_000_000,
+            "Growth rate not updated"
+        );
+        assertGt(
+            gdpOracle.lastUpdateTimestamp(),
+            firstUpdateTime,
+            "Timestamp not updated"
+        );
+    }
+
+    function test_EventEmissionOrder() public {
+        // Start recording logs
+        vm.recordLogs();
+
+        // Create and fulfill request
+        vm.prank(OWNER);
+        bytes32 requestId = gdpOracle.requestGDPUpdate();
+
+        int256 growthRate = 2_500_000_000_000_000_000;
+        uint8 quarter = 1;
+        uint16 year = 2024;
+
+        vm.prank(ORACLE_ADDRESS);
+        gdpOracle.fulfill(requestId, growthRate, quarter, year);
+
+        // Get recorded logs
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        // Verify we have the expected events
+        assertGt(entries.length, 0, "No events emitted");
+
+        // The last event should be our GDPDataUpdated event
+        Vm.Log memory lastEvent = entries[entries.length - 1];
+
+        // Verify event topic (event signature)
+        bytes32 expectedTopic = keccak256(
+            "GDPDataUpdated(uint256,int256,uint8,uint16)"
+        );
+        assertEq(
+            lastEvent.topics[0],
+            expectedTopic,
+            "Unexpected event signature"
+        );
     }
 }
