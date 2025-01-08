@@ -1,1 +1,3 @@
 # EconoSage
+
+Economic indicator oracle
