@@ -10,7 +10,13 @@
         "test": "jest",
         "test:unit": "jest --selectProjects unit",
         "test:integration": "jest --selectProjects integration",
-        "lint": "eslint src/**/*.ts"
+        "lint": "eslint src/**/*.ts test/**/*.ts",
+        "lint:fix": "eslint src/**/*.ts test/**/*.ts --fix",
+        "clean": "rm -rf dist",
+        "prebuild": "npm run clean"
+    },
+    "engines": {
+        "node": ">=18.0.0"
     },
     "dependencies": {
         "axios": "^1.6.5",

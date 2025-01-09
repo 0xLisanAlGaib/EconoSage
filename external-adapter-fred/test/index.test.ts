@@ -1,13 +1,15 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
+import express, { Express } from 'express';
 import request from 'supertest';
-import express from 'express';
 import { GDPAdapter } from '../src/adapter';
+import { AdapterRequest } from '../src/types/request';
+import { AdapterResponse } from '../src/types/response';
 import { MockedClass } from 'jest-mock';
 
 jest.mock('../src/adapter');
 
 describe('API Endpoints', () => {
-  let app: express.Application;
+  let app: Express;
   const MockedGDPAdapter = GDPAdapter as MockedClass<typeof GDPAdapter>;
 
   beforeEach(() => {
@@ -23,23 +25,23 @@ describe('API Endpoints', () => {
     });
 
     const adapter = new GDPAdapter();
-    app.post('/', async (req, res) => {
+    app.post('/', async (req: express.Request, res: express.Response) => {
       try {
         if (!req.body || !req.body.id || !req.body.data) {
           return res.status(400).json({
-            jobRunID: req.body?.id || '0',
+            jobRunID: (req.body as AdapterRequest)?.id || '0',
             status: 'errored',
             statusCode: 400,
             error: 'Invalid request body',
           });
         }
 
-        const response = await adapter.execute(req.body);
+        const response = await adapter.execute(req.body as AdapterRequest);
         res.json(response);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         res.status(500).json({
-          jobRunID: req.body?.id || '0',
+          jobRunID: (req.body as AdapterRequest)?.id || '0',
           status: 'errored',
           statusCode: 500,
           error: errorMessage,
@@ -58,7 +60,7 @@ describe('API Endpoints', () => {
 
   describe('POST /', () => {
     it('should handle valid request', async () => {
-      const mockResponse = {
+      const mockResponse: AdapterResponse = {
         jobRunID: '1',
         result: {
           value: 2.5,
@@ -67,7 +69,12 @@ describe('API Endpoints', () => {
           units: 'Percent Change'
         },
         statusCode: 200,
-        data: { /* mock FRED response */ }
+        data: {
+          observations: [{
+            date: '2023-01-01',
+            value: '2.5'
+          }]
+        }
       };
 
       MockedGDPAdapter.prototype.execute.mockResolvedValueOnce(mockResponse);
@@ -91,7 +98,8 @@ describe('API Endpoints', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body).toMatchObject({
+      const body = response.body as AdapterResponse;
+      expect(body).toMatchObject({
         status: 'errored',
         statusCode: 400,
         error: 'Invalid request body'
@@ -113,7 +121,8 @@ describe('API Endpoints', () => {
         });
 
       expect(response.status).toBe(500);
-      expect(response.body).toMatchObject({
+      const body = response.body as AdapterResponse;
+      expect(body).toMatchObject({
         status: 'errored',
         statusCode: 500,
         error: 'Test error'
@@ -130,7 +139,8 @@ describe('API Endpoints', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toMatchObject({
+      const body = response.body as AdapterResponse;
+      expect(body).toMatchObject({
         status: 'errored',
         statusCode: 400,
         error: 'Invalid request body'
@@ -145,7 +155,8 @@ describe('API Endpoints', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toMatchObject({
+      const body = response.body as AdapterResponse;
+      expect(body).toMatchObject({
         status: 'errored',
         statusCode: 400,
         error: 'Invalid request body'

@@ -1,11 +1,18 @@
 export interface AdapterResponse {
   jobRunID: string;
-  result: {
-    value: number;      // GDP growth rate value
-    timestamp: number;  // Unix timestamp of the observation
-    series_id: string;  // FRED series ID
-    units: string;      // Data units (e.g., "Percent Change")
+  result?: {
+    value: number;
+    timestamp: number;
+    series_id: string;
+    units?: string;
   };
   statusCode: number;
-  data?: any;          // Optional raw data from FRED
+  status?: string;
+  error?: string;
+  data?: {
+    observations: Array<{
+      date: string;
+      value: string;
+    }>;
+  };
 } 

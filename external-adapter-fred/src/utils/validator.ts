@@ -9,7 +9,7 @@ export class Validator {
     this.request = request;
   }
 
-  validateRequiredParam(paramName: ValidParamName) {
+  validateRequiredParam(paramName: ValidParamName): string {
     const param = this.request.data[paramName];
     if (!param || param.trim() === '') {
       throw new Error(`${paramName} is required`);
@@ -17,7 +17,10 @@ export class Validator {
     return param;
   }
 
-  validateOptionalParam(paramName: ValidParamName, validator?: (value: string) => boolean) {
+  validateOptionalParam(
+    paramName: ValidParamName,
+    validator?: (value: string) => boolean,
+  ): string | undefined {
     const param = this.request.data[paramName];
     if (param === undefined || param.trim() === '') {
       return undefined;
@@ -29,57 +32,45 @@ export class Validator {
   }
 
   static isValidDate(date: string): boolean {
-    try {
-      // Handle ISO date strings
-      if (date.includes('T')) {
-        const parsed = new Date(date);
-        return !isNaN(parsed.getTime());
-      }
-
-      // Handle YYYY-MM-DD format
-      const [year, month, day] = date.split('-').map(Number);
-      const parsed = new Date(year, month - 1, day);
-      
-      // Check if the date is valid and matches the input
-      return parsed.getFullYear() === year &&
-             parsed.getMonth() === month - 1 &&
-             parsed.getDate() === day;
-    } catch {
-      return false;
-    }
+    if (!date) return false;
+    
+    const dateObj = new Date(date);
+    return dateObj instanceof Date && !isNaN(dateObj.getTime());
   }
 
   static isValidUnit(unit: string): boolean {
+    if (!unit) return false;
+    
     const validUnits = ['lin', 'chg', 'ch1', 'pch', 'pc1', 'pca', 'cch', 'cca', 'log'];
-    return validUnits.includes(unit);
+    return validUnits.includes(unit.trim().toLowerCase());
   }
 
   static isValidFrequency(frequency: string): boolean {
+    if (!frequency) return false;
+    
     const validFrequencies = ['d', 'w', 'bw', 'm', 'q', 'sa', 'a'];
-    return validFrequencies.includes(frequency);
+    return validFrequencies.includes(frequency.trim().toLowerCase());
   }
 
   static validateTimestamp(timestamp: number): void {
-    if (isNaN(timestamp) || timestamp < 0) {
+    if (isNaN(timestamp) || timestamp <= 0) {
       throw new Error('Invalid timestamp');
     }
 
     const date = new Date(timestamp);
-    if (!isFinite(date.getTime())) {
-      throw new Error('Invalid timestamp');
-    }
+    const minDate = new Date('1970-01-01').getTime();
+    const maxDate = new Date('2100-12-31').getTime();
 
-    // Only allow timestamps from Unix epoch (1970-01-01) through 2100-12-31
-    const maxTimestamp = Date.UTC(2100, 11, 31, 23, 59, 59, 999);  // 2100-12-31 23:59:59.999 UTC
-    
-    if (timestamp > maxTimestamp) {
+    if (date.getTime() < minDate || date.getTime() > maxDate) {
       throw new Error('Invalid timestamp');
     }
   }
 
-  static validateValue(value: number): void {
-    if (isNaN(value)) {
+  static validateValue(value: string): number {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
       throw new Error('Invalid value');
     }
+    return numValue;
   }
 } 

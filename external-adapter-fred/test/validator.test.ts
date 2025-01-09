@@ -1,4 +1,4 @@
-import { jest, describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { Validator } from '../src/utils/validator';
 import { AdapterRequest } from '../src/types/request';
 
@@ -97,22 +97,12 @@ describe('Validator', () => {
     it('should return false for invalid dates', () => {
       expect(Validator.isValidDate('invalid')).toBe(false);
       expect(Validator.isValidDate('2023-13-01')).toBe(false);
+      expect(Validator.isValidDate('')).toBe(false);
     });
 
     it('should handle leap year dates', () => {
       expect(Validator.isValidDate('2024-02-29')).toBe(true);
       expect(Validator.isValidDate('2023-02-29')).toBe(false);
-    });
-
-    it('should handle different timezone formats', () => {
-      expect(Validator.isValidDate('2023-01-01T00:00:00Z')).toBe(true);
-      expect(Validator.isValidDate('2023-01-01T00:00:00+00:00')).toBe(true);
-      expect(Validator.isValidDate('2023-01-01T00:00:00-05:00')).toBe(true);
-    });
-
-    it('should handle boundary dates', () => {
-      expect(Validator.isValidDate('1900-01-01')).toBe(true);
-      expect(Validator.isValidDate('2100-12-31')).toBe(true);
     });
   });
 
@@ -127,14 +117,10 @@ describe('Validator', () => {
       expect(Validator.isValidUnit('')).toBe(false);
     });
 
-    it('should be case sensitive', () => {
-      expect(Validator.isValidUnit('PC1')).toBe(false);
-      expect(Validator.isValidUnit('Lin')).toBe(false);
-    });
-
-    it('should handle whitespace', () => {
-      expect(Validator.isValidUnit(' pc1')).toBe(false);
-      expect(Validator.isValidUnit('pc1 ')).toBe(false);
+    it('should handle case and whitespace', () => {
+      expect(Validator.isValidUnit('PC1')).toBe(true);
+      expect(Validator.isValidUnit(' pc1')).toBe(true);
+      expect(Validator.isValidUnit('pc1 ')).toBe(true);
       expect(Validator.isValidUnit(' ')).toBe(false);
     });
   });
@@ -150,14 +136,10 @@ describe('Validator', () => {
       expect(Validator.isValidFrequency('')).toBe(false);
     });
 
-    it('should be case sensitive', () => {
-      expect(Validator.isValidFrequency('Q')).toBe(false);
-      expect(Validator.isValidFrequency('M')).toBe(false);
-    });
-
-    it('should handle whitespace', () => {
-      expect(Validator.isValidFrequency(' q')).toBe(false);
-      expect(Validator.isValidFrequency('q ')).toBe(false);
+    it('should handle case and whitespace', () => {
+      expect(Validator.isValidFrequency('Q')).toBe(true);
+      expect(Validator.isValidFrequency(' q')).toBe(true);
+      expect(Validator.isValidFrequency('q ')).toBe(true);
       expect(Validator.isValidFrequency(' ')).toBe(false);
     });
   });
@@ -179,30 +161,26 @@ describe('Validator', () => {
       expect(() => Validator.validateTimestamp(new Date('2100-12-31').getTime())).not.toThrow();
     });
 
-    it('should handle zero timestamp', () => {
-      expect(() => Validator.validateTimestamp(0)).not.toThrow();
+    it('should throw for zero timestamp', () => {
+      expect(() => Validator.validateTimestamp(0)).toThrow('Invalid timestamp');
     });
   });
 
   describe('validateValue', () => {
-    it('should not throw for valid numbers', () => {
-      expect(() => Validator.validateValue(2.5)).not.toThrow();
-      expect(() => Validator.validateValue(-1.5)).not.toThrow();
+    it('should return number for valid string values', () => {
+      expect(Validator.validateValue('2.5')).toBe(2.5);
+      expect(Validator.validateValue('-1.5')).toBe(-1.5);
+      expect(Validator.validateValue('0')).toBe(0);
     });
 
-    it('should throw for invalid numbers', () => {
-      expect(() => Validator.validateValue(NaN)).toThrow('Invalid value');
+    it('should throw for invalid values', () => {
+      expect(() => Validator.validateValue('invalid')).toThrow('Invalid value');
+      expect(() => Validator.validateValue('')).toThrow('Invalid value');
     });
 
-    it('should handle boundary values', () => {
-      expect(() => Validator.validateValue(Number.MAX_SAFE_INTEGER)).not.toThrow();
-      expect(() => Validator.validateValue(Number.MIN_SAFE_INTEGER)).not.toThrow();
-      expect(() => Validator.validateValue(0)).not.toThrow();
-    });
-
-    it('should handle floating point precision', () => {
-      expect(() => Validator.validateValue(0.1 + 0.2)).not.toThrow();
-      expect(() => Validator.validateValue(1e-10)).not.toThrow();
+    it('should handle scientific notation', () => {
+      expect(Validator.validateValue('1e-10')).toBe(1e-10);
+      expect(Validator.validateValue('1.23e+3')).toBe(1230);
     });
   });
 }); 

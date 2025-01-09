@@ -4,6 +4,9 @@ import { FREDClient } from '../src/utils/fred';
 import { AdapterRequest } from '../src/types/request';
 import { MockedClass } from 'jest-mock';
 
+// Import FREDResponse type from fred.ts
+import type { FREDResponse } from '../src/utils/fred';
+
 jest.mock('../src/utils/fred');
 
 describe('GDPAdapter', () => {
@@ -130,6 +133,9 @@ describe('GDPAdapter', () => {
     };
 
     const response = await adapter.execute(request);
+    if (!response.result) {
+      throw new Error('Response is missing result');
+    }
     expect(response.result.value).toBe(2.5);
     expect(response.result.timestamp).toBe(new Date('2023-12-01').getTime());
   });
@@ -191,8 +197,8 @@ describe('GDPAdapter', () => {
 
   it('should handle malformed FRED response', async () => {
     MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
-      // Missing observations field
-    });
+      observations: []
+    } as FREDResponse);
 
     const request: AdapterRequest = {
       id: '1',
