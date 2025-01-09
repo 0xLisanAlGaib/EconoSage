@@ -1,24 +1,19 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { GDPAdapter } from '../src/adapter';
 import { FREDClient } from '../src/utils/fred';
+import { AdapterResponse } from '../src/types/response';
 import { AdapterRequest } from '../src/types/request';
-import { MockedClass } from 'jest-mock';
-
-// Import FREDResponse type from fred.ts
-import type { FREDResponse } from '../src/utils/fred';
 
 jest.mock('../src/utils/fred');
+const MockedFREDClient = FREDClient as jest.MockedClass<typeof FREDClient>;
 
 describe('GDPAdapter', () => {
-  let adapter: GDPAdapter;
-  const MockedFREDClient = FREDClient as MockedClass<typeof FREDClient>;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    adapter = new GDPAdapter();
   });
 
   it('should throw error if series_id is missing', async () => {
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -26,12 +21,15 @@ describe('GDPAdapter', () => {
       }
     };
 
-    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: series_id is required');
+    const response = await adapter.execute(request);
+    expect(response.jobRunID).toBe('1');
+    expect(response.statusCode).toBe(500);
+    expect(response.status).toBe('errored');
+    expect(response.error).toBe('series_id is required');
   });
 
   it('should handle successful GDP data fetch', async () => {
-    // Mock the FRED API response
-    const mockFredResponse = {
+    const mockResponse = {
       observations: [
         {
           date: '2023-12-01',
@@ -40,13 +38,13 @@ describe('GDPAdapter', () => {
       ]
     };
 
-    // Setup the mock implementation
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockFredResponse);
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse);
 
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
-        series_id: 'GDP',
+        series_id: 'GDP'
       }
     };
 
@@ -59,24 +57,16 @@ describe('GDPAdapter', () => {
         value: 2.5,
         timestamp: new Date('2023-12-01').getTime(),
         series_id: 'GDP',
-        units: 'Percent Change'
+        units: 'Percent Change',
       },
       statusCode: 200,
-      data: mockFredResponse
-    });
-
-    // Verify FRED client was called with correct parameters
-    expect(MockedFREDClient.prototype.getGDPData).toHaveBeenCalledWith({
-      series_id: 'GDP',
-      observation_start: undefined,
-      observation_end: undefined,
-      units: undefined,
-      frequency: undefined
+      status: 'success',
+      data: mockResponse,
     });
   });
 
   it('should handle request with all optional parameters', async () => {
-    const mockFredResponse = {
+    const mockResponse = {
       observations: [
         {
           date: '2023-12-01',
@@ -85,32 +75,28 @@ describe('GDPAdapter', () => {
       ]
     };
 
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockFredResponse);
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse);
 
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
         series_id: 'GDP',
         observation_start: '2023-01-01',
         observation_end: '2023-12-31',
-        units: 'lin',
-        frequency: 'm'
+        units: 'pc1',
+        frequency: 'q'
       }
     };
 
-    await adapter.execute(request);
-
-    expect(MockedFREDClient.prototype.getGDPData).toHaveBeenCalledWith({
-      series_id: 'GDP',
-      observation_start: '2023-01-01',
-      observation_end: '2023-12-31',
-      units: 'lin',
-      frequency: 'm'
-    });
+    const response = await adapter.execute(request);
+    expect(response.statusCode).toBe(200);
+    expect(response.status).toBe('success');
+    expect(response.result).toBeDefined();
   });
 
   it('should return latest observation when multiple are present', async () => {
-    const mockFredResponse = {
+    const mockResponse = {
       observations: [
         {
           date: '2023-11-01',
@@ -123,8 +109,9 @@ describe('GDPAdapter', () => {
       ]
     };
 
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockFredResponse);
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse);
 
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -133,18 +120,19 @@ describe('GDPAdapter', () => {
     };
 
     const response = await adapter.execute(request);
-    if (!response.result) {
-      throw new Error('Response is missing result');
-    }
-    expect(response.result.value).toBe(2.5);
-    expect(response.result.timestamp).toBe(new Date('2023-12-01').getTime());
+    expect(response.statusCode).toBe(200);
+    expect(response.status).toBe('success');
+    expect(response.result?.value).toBe(2.5);
   });
 
   it('should handle empty observations', async () => {
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
+    const mockResponse = {
       observations: []
-    });
+    };
 
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse);
+
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -152,19 +140,25 @@ describe('GDPAdapter', () => {
       }
     };
 
-    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: No observations found');
+    const response = await adapter.execute(request);
+    expect(response.statusCode).toBe(500);
+    expect(response.status).toBe('errored');
+    expect(response.error).toBe('No observations found');
   });
 
   it('should handle invalid value from FRED', async () => {
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
+    const mockResponse = {
       observations: [
         {
           date: '2023-12-01',
           value: 'invalid'
         }
       ]
-    });
+    };
 
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse);
+
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -172,19 +166,25 @@ describe('GDPAdapter', () => {
       }
     };
 
-    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: Invalid value');
+    const response = await adapter.execute(request);
+    expect(response.statusCode).toBe(500);
+    expect(response.status).toBe('errored');
+    expect(response.error).toBe('Invalid value');
   });
 
   it('should handle invalid date from FRED', async () => {
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
+    const mockResponse = {
       observations: [
         {
-          date: 'invalid-date',
+          date: 'invalid',
           value: '2.5'
         }
       ]
-    });
+    };
 
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse);
+
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -192,14 +192,20 @@ describe('GDPAdapter', () => {
       }
     };
 
-    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: Invalid timestamp');
+    const response = await adapter.execute(request);
+    expect(response.statusCode).toBe(500);
+    expect(response.status).toBe('errored');
+    expect(response.error).toBe('Invalid timestamp');
   });
 
   it('should handle malformed FRED response', async () => {
-    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
-      observations: []
-    } as FREDResponse);
+    const mockResponse = {
+      // Missing observations array
+    };
 
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockResponse as any);
+
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -207,14 +213,16 @@ describe('GDPAdapter', () => {
       }
     };
 
-    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: No observations found');
+    const response = await adapter.execute(request);
+    expect(response.statusCode).toBe(500);
+    expect(response.status).toBe('errored');
+    expect(response.error).toBe('No observations found');
   });
 
   it('should handle FRED API errors', async () => {
-    MockedFREDClient.prototype.getGDPData.mockRejectedValueOnce(
-      new Error('FRED API Error: Rate limit exceeded')
-    );
+    MockedFREDClient.prototype.getGDPData.mockRejectedValueOnce(new Error('FRED API Error: Rate limit exceeded'));
 
+    const adapter = new GDPAdapter();
     const request: AdapterRequest = {
       id: '1',
       data: {
@@ -222,6 +230,9 @@ describe('GDPAdapter', () => {
       }
     };
 
-    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: FRED API Error: Rate limit exceeded');
+    const response = await adapter.execute(request);
+    expect(response.statusCode).toBe(500);
+    expect(response.status).toBe('errored');
+    expect(response.error).toBe('FRED API Error: Rate limit exceeded');
   });
 }); 

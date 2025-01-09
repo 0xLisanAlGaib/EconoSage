@@ -39,34 +39,11 @@ export class GDPAdapter {
       }
 
       // Then validate value
-      const value = parseFloat(latestObservation.value);
-      if (isNaN(value)) {
-        throw new Error('Invalid value');
-      }
+      const value = Validator.validateValue(latestObservation.value);
 
       // Convert and validate timestamp
       const date = new Date(latestObservation.date);
       Validator.validateTimestamp(date.getTime());
-
-      // Store in database
-      const measurement: GDPMeasurement = {
-        value,
-        date,
-        series_id: params.series_id,
-        units: params.units || 'Percent Change',
-        status: 'pending'
-      };
-
-      // Insert measurement and get its ID
-      const measurementId = await DatabaseOperations.insertGDPMeasurement(measurement);
-
-      try {
-        // Mark as processed if everything is OK
-        await DatabaseOperations.updateMeasurementStatus(measurementId, 'processed');
-      } catch (error) {
-        console.error('Error updating measurement status:', error);
-        // Continue with the response even if status update fails
-      }
 
       // Prepare the response
       const response: AdapterResponse = {
@@ -78,13 +55,40 @@ export class GDPAdapter {
           units: params.units || 'Percent Change',
         },
         statusCode: 200,
+        status: 'success',
         data: fredResponse,
       };
+
+      // Try to store in database, but don't fail if database operations fail
+      try {
+        const measurement: GDPMeasurement = {
+          value,
+          date,
+          series_id: params.series_id,
+          units: params.units || 'Percent Change',
+          status: 'pending'
+        };
+
+        // Insert measurement and get its ID
+        const measurementId = await DatabaseOperations.insertGDPMeasurement(measurement);
+
+        // Mark as processed if everything is OK
+        await DatabaseOperations.updateMeasurementStatus(measurementId, 'processed');
+      } catch (error) {
+        // Log database errors but don't fail the request
+        console.error('Database operation failed:', error);
+      }
 
       return response;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Adapter Error: ${error.message}`);
+        const response: AdapterResponse = {
+          jobRunID: id,
+          statusCode: 500,
+          status: 'errored',
+          error: error.message,
+        };
+        return response;
       }
       throw new Error('Unknown error in adapter');
     }

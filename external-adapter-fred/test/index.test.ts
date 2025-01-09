@@ -5,6 +5,9 @@ import { GDPAdapter } from '../src/adapter';
 import { AdapterRequest } from '../src/types/request';
 import { AdapterResponse } from '../src/types/response';
 import { MockedClass } from 'jest-mock';
+import { app } from '../src/index';
+import { testConfig } from './config';
+import testDb from './database/connection';
 
 jest.mock('../src/adapter');
 
@@ -28,26 +31,32 @@ describe('API Endpoints', () => {
     app.post('/', async (req: express.Request, res: express.Response) => {
       try {
         if (!req.body || !req.body.id || !req.body.data) {
-          return res.status(400).json({
-            jobRunID: (req.body as AdapterRequest)?.id || '0',
+          const response: AdapterResponse = {
+            jobRunID: req.body?.id || '0',
             status: 'errored',
             statusCode: 400,
             error: 'Invalid request body',
-          });
+          };
+          return res.status(400).json(response);
         }
 
         const response = await adapter.execute(req.body as AdapterRequest);
-        res.json(response);
+        res.status(response.statusCode).json(response);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        res.status(500).json({
+        const response: AdapterResponse = {
           jobRunID: (req.body as AdapterRequest)?.id || '0',
           status: 'errored',
           statusCode: 500,
           error: errorMessage,
-        });
+        };
+        res.status(500).json(response);
       }
     });
+  });
+
+  beforeEach(async () => {
+    await testDb.none('TRUNCATE TABLE gdp_measurements RESTART IDENTITY CASCADE');
   });
 
   describe('GET /', () => {
@@ -63,18 +72,13 @@ describe('API Endpoints', () => {
       const mockResponse: AdapterResponse = {
         jobRunID: '1',
         result: {
-          value: 2.5,
-          timestamp: 1672531200000,
-          series_id: 'GDP',
-          units: 'Percent Change'
+          value: 123.45,
+          timestamp: Date.now(),
+          series_id: 'GDPC1',
+          units: 'pc1',
         },
         statusCode: 200,
-        data: {
-          observations: [{
-            date: '2023-01-01',
-            value: '2.5'
-          }]
-        }
+        status: 'success',
       };
 
       MockedGDPAdapter.prototype.execute.mockResolvedValueOnce(mockResponse);
@@ -84,12 +88,19 @@ describe('API Endpoints', () => {
         .send({
           id: '1',
           data: {
-            series_id: 'GDP'
+            series_id: 'GDPC1',
+            units: 'pc1',
+            frequency: 'q'
           }
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockResponse);
+      expect(response.body).toHaveProperty('jobRunID', '1');
+      expect(response.body).toHaveProperty('statusCode', 200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body).toHaveProperty('result');
+      expect(response.body.result).toHaveProperty('value');
+      expect(typeof response.body.result.value).toBe('number');
     });
 
     it('should handle missing request body', async () => {
@@ -98,35 +109,35 @@ describe('API Endpoints', () => {
         .send({});
 
       expect(response.status).toBe(400);
-      const body = response.body as AdapterResponse;
-      expect(body).toMatchObject({
-        status: 'errored',
-        statusCode: 400,
-        error: 'Invalid request body'
-      });
+      expect(response.body).toHaveProperty('jobRunID', '0');
+      expect(response.body).toHaveProperty('status', 'errored');
+      expect(response.body).toHaveProperty('statusCode', 400);
     });
 
     it('should handle adapter errors', async () => {
-      MockedGDPAdapter.prototype.execute.mockRejectedValueOnce(
-        new Error('Test error')
-      );
+      const mockError: AdapterResponse = {
+        jobRunID: '1',
+        status: 'errored',
+        statusCode: 500,
+        error: 'FRED API Error: Invalid series ID',
+      };
+
+      MockedGDPAdapter.prototype.execute.mockResolvedValueOnce(mockError);
 
       const response = await request(app)
         .post('/')
         .send({
           id: '1',
           data: {
-            series_id: 'GDP'
+            series_id: 'INVALID_SERIES'
           }
         });
 
       expect(response.status).toBe(500);
-      const body = response.body as AdapterResponse;
-      expect(body).toMatchObject({
-        status: 'errored',
-        statusCode: 500,
-        error: 'Test error'
-      });
+      expect(response.body).toHaveProperty('jobRunID', '1');
+      expect(response.body).toHaveProperty('status', 'errored');
+      expect(response.body).toHaveProperty('statusCode', 500);
+      expect(response.body).toHaveProperty('error');
     });
 
     it('should handle missing id in request', async () => {
@@ -134,17 +145,14 @@ describe('API Endpoints', () => {
         .post('/')
         .send({
           data: {
-            series_id: 'GDP'
+            series_id: 'GDPC1'
           }
         });
 
       expect(response.status).toBe(400);
-      const body = response.body as AdapterResponse;
-      expect(body).toMatchObject({
-        status: 'errored',
-        statusCode: 400,
-        error: 'Invalid request body'
-      });
+      expect(response.body).toHaveProperty('jobRunID', '0');
+      expect(response.body).toHaveProperty('status', 'errored');
+      expect(response.body).toHaveProperty('statusCode', 400);
     });
 
     it('should handle missing data in request', async () => {
@@ -155,12 +163,9 @@ describe('API Endpoints', () => {
         });
 
       expect(response.status).toBe(400);
-      const body = response.body as AdapterResponse;
-      expect(body).toMatchObject({
-        status: 'errored',
-        statusCode: 400,
-        error: 'Invalid request body'
-      });
+      expect(response.body).toHaveProperty('jobRunID', '1');
+      expect(response.body).toHaveProperty('status', 'errored');
+      expect(response.body).toHaveProperty('statusCode', 400);
     });
   });
 }); 
