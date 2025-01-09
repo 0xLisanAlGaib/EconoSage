@@ -1,8 +1,8 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { config } from '../config';
+import { FRED_ENDPOINT, EndpointParams } from '../endpoint';
 
 export class FREDClient {
-  private baseURL = 'https://api.stlouisfed.org/fred/series/observations';
   private apiKey: string;
 
   constructor() {
@@ -12,32 +12,22 @@ export class FREDClient {
     }
   }
 
-  async getGDPData(params: {
-    series_id: string;
-    observation_start?: string;
-    observation_end?: string;
-    units?: string;
-    frequency?: string;
-  }) {
+  async getGDPData(params: EndpointParams) {
     try {
-      const response = await axios.get(this.baseURL, {
+      const response = await axios.get(FRED_ENDPOINT, {
         params: {
-          series_id: params.series_id,
+          ...params,
           api_key: this.apiKey,
           file_type: 'json',
-          observation_start: params.observation_start,
-          observation_end: params.observation_end,
-          units: params.units || 'pc1',  // Percent Change from Previous Period
-          frequency: params.frequency || 'q',  // Quarterly
         },
       });
 
       return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
+    } catch (error: unknown) {
+      if (error instanceof AxiosError) {
         throw new Error(`FRED API Error: ${error.message}`);
       }
-      throw error;
+      throw new Error('Unknown error occurred while fetching FRED data');
     }
   }
 } 
