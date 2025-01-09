@@ -13,7 +13,8 @@
         "lint": "eslint src/**/*.ts test/**/*.ts",
         "lint:fix": "eslint src/**/*.ts test/**/*.ts --fix",
         "clean": "rm -rf dist",
-        "prebuild": "npm run clean"
+        "prebuild": "npm run clean",
+        "migrate": "node-pg-migrate"
     },
     "engines": {
         "node": ">=18.0.0"
@@ -21,13 +22,17 @@
     "dependencies": {
         "axios": "^1.6.5",
         "dotenv": "^16.3.1",
-        "express": "^4.18.2"
+        "express": "^4.18.2",
+        "pg": "^8.11.3",
+        "pg-promise": "^11.5.4",
+        "node-pg-migrate": "^6.2.2"
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
         "@types/express": "^4.17.21",
         "@types/jest": "^29.5.14",
         "@types/node": "^20.10.6",
+        "@types/pg": "^8.10.9",
         "@types/supertest": "^6.0.2",
         "@typescript-eslint/eslint-plugin": "^6.17.0",
         "@typescript-eslint/parser": "^6.17.0",

@@ -3,6 +3,7 @@ import { AdapterResponse } from './types/response';
 import { FREDClient } from './utils/fred';
 import { Endpoint } from './endpoint';
 import { Validator } from './utils/validator';
+import { DatabaseOperations, GDPMeasurement } from './database/operations';
 
 export class GDPAdapter {
   private fredClient: FREDClient;
@@ -44,15 +45,35 @@ export class GDPAdapter {
       }
 
       // Convert and validate timestamp
-      const timestamp = new Date(latestObservation.date).getTime();
-      Validator.validateTimestamp(timestamp);
+      const date = new Date(latestObservation.date);
+      Validator.validateTimestamp(date.getTime());
+
+      // Store in database
+      const measurement: GDPMeasurement = {
+        value,
+        date,
+        series_id: params.series_id,
+        units: params.units || 'Percent Change',
+        status: 'pending'
+      };
+
+      // Insert measurement and get its ID
+      const measurementId = await DatabaseOperations.insertGDPMeasurement(measurement);
+
+      try {
+        // Mark as processed if everything is OK
+        await DatabaseOperations.updateMeasurementStatus(measurementId, 'processed');
+      } catch (error) {
+        console.error('Error updating measurement status:', error);
+        // Continue with the response even if status update fails
+      }
 
       // Prepare the response
       const response: AdapterResponse = {
         jobRunID: id,
         result: {
           value,
-          timestamp,
+          timestamp: date.getTime(),
           series_id: params.series_id,
           units: params.units || 'Percent Change',
         },

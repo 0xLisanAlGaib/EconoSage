@@ -8,7 +8,8 @@ contract DeployUS_GDP_Q is Script {
     // Configuration
     address public constant LINK_TOKEN_SEPOLIA =
         0x779877A7B0D9E8603169DdbD7836e478b4624789;
-    address public constant ORACLE_ADDRESS_SEPOLIA = address(0); // TODO: Add oracle address
+    address public constant ORACLE_ADDRESS_SEPOLIA =
+        0x447Fd5eC2D383091C22B8549cb231a3bAD6d3fAf;
     bytes32 public constant JOB_ID = "6b88e0402e5d415eb946e528b8e0c7ba"; // TODO: Add actual job ID
 
     function run() public {
