@@ -74,6 +74,68 @@ describe('GDPAdapter', () => {
     });
   });
 
+  it('should handle request with all optional parameters', async () => {
+    const mockFredResponse = {
+      observations: [
+        {
+          date: '2023-12-01',
+          value: '2.5'
+        }
+      ]
+    };
+
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockFredResponse);
+
+    const request: AdapterRequest = {
+      id: '1',
+      data: {
+        series_id: 'GDP',
+        observation_start: '2023-01-01',
+        observation_end: '2023-12-31',
+        units: 'lin',
+        frequency: 'm'
+      }
+    };
+
+    await adapter.execute(request);
+
+    expect(MockedFREDClient.prototype.getGDPData).toHaveBeenCalledWith({
+      series_id: 'GDP',
+      observation_start: '2023-01-01',
+      observation_end: '2023-12-31',
+      units: 'lin',
+      frequency: 'm'
+    });
+  });
+
+  it('should return latest observation when multiple are present', async () => {
+    const mockFredResponse = {
+      observations: [
+        {
+          date: '2023-11-01',
+          value: '2.0'
+        },
+        {
+          date: '2023-12-01',
+          value: '2.5'
+        }
+      ]
+    };
+
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce(mockFredResponse);
+
+    const request: AdapterRequest = {
+      id: '1',
+      data: {
+        series_id: 'GDP'
+      }
+    };
+
+    const response = await adapter.execute(request);
+    expect(response.result.value).toBe(2.5);
+    expect(response.result.timestamp).toBe(new Date('2023-12-01').getTime());
+  });
+
   it('should handle empty observations', async () => {
     MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
       observations: []
@@ -107,6 +169,41 @@ describe('GDPAdapter', () => {
     };
 
     await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: Invalid value');
+  });
+
+  it('should handle invalid date from FRED', async () => {
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
+      observations: [
+        {
+          date: 'invalid-date',
+          value: '2.5'
+        }
+      ]
+    });
+
+    const request: AdapterRequest = {
+      id: '1',
+      data: {
+        series_id: 'GDP'
+      }
+    };
+
+    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: Invalid timestamp');
+  });
+
+  it('should handle malformed FRED response', async () => {
+    MockedFREDClient.prototype.getGDPData.mockResolvedValueOnce({
+      // Missing observations field
+    });
+
+    const request: AdapterRequest = {
+      id: '1',
+      data: {
+        series_id: 'GDP'
+      }
+    };
+
+    await expect(adapter.execute(request)).rejects.toThrow('Adapter Error: No observations found');
   });
 
   it('should handle FRED API errors', async () => {

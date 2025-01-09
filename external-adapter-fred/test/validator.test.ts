@@ -25,6 +25,17 @@ describe('Validator', () => {
       const validator = new Validator(request);
       expect(() => validator.validateRequiredParam('series_id')).toThrow('series_id is required');
     });
+
+    it('should throw error when required param is whitespace', () => {
+      const request: AdapterRequest = {
+        id: '1',
+        data: {
+          series_id: '   '
+        }
+      };
+      const validator = new Validator(request);
+      expect(() => validator.validateRequiredParam('series_id')).toThrow('series_id is required');
+    });
   });
 
   describe('validateOptionalParam', () => {
@@ -63,6 +74,18 @@ describe('Validator', () => {
       expect(() => validator.validateOptionalParam('observation_start', Validator.isValidDate))
         .toThrow('Invalid observation_start format');
     });
+
+    it('should handle empty string as undefined', () => {
+      const request: AdapterRequest = {
+        id: '1',
+        data: {
+          series_id: 'GDP',
+          observation_start: ''
+        }
+      };
+      const validator = new Validator(request);
+      expect(validator.validateOptionalParam('observation_start', Validator.isValidDate)).toBeUndefined();
+    });
   });
 
   describe('isValidDate', () => {
@@ -74,6 +97,22 @@ describe('Validator', () => {
     it('should return false for invalid dates', () => {
       expect(Validator.isValidDate('invalid')).toBe(false);
       expect(Validator.isValidDate('2023-13-01')).toBe(false);
+    });
+
+    it('should handle leap year dates', () => {
+      expect(Validator.isValidDate('2024-02-29')).toBe(true);
+      expect(Validator.isValidDate('2023-02-29')).toBe(false);
+    });
+
+    it('should handle different timezone formats', () => {
+      expect(Validator.isValidDate('2023-01-01T00:00:00Z')).toBe(true);
+      expect(Validator.isValidDate('2023-01-01T00:00:00+00:00')).toBe(true);
+      expect(Validator.isValidDate('2023-01-01T00:00:00-05:00')).toBe(true);
+    });
+
+    it('should handle boundary dates', () => {
+      expect(Validator.isValidDate('1900-01-01')).toBe(true);
+      expect(Validator.isValidDate('2100-12-31')).toBe(true);
     });
   });
 
@@ -87,6 +126,17 @@ describe('Validator', () => {
       expect(Validator.isValidUnit('invalid')).toBe(false);
       expect(Validator.isValidUnit('')).toBe(false);
     });
+
+    it('should be case sensitive', () => {
+      expect(Validator.isValidUnit('PC1')).toBe(false);
+      expect(Validator.isValidUnit('Lin')).toBe(false);
+    });
+
+    it('should handle whitespace', () => {
+      expect(Validator.isValidUnit(' pc1')).toBe(false);
+      expect(Validator.isValidUnit('pc1 ')).toBe(false);
+      expect(Validator.isValidUnit(' ')).toBe(false);
+    });
   });
 
   describe('isValidFrequency', () => {
@@ -99,6 +149,17 @@ describe('Validator', () => {
       expect(Validator.isValidFrequency('invalid')).toBe(false);
       expect(Validator.isValidFrequency('')).toBe(false);
     });
+
+    it('should be case sensitive', () => {
+      expect(Validator.isValidFrequency('Q')).toBe(false);
+      expect(Validator.isValidFrequency('M')).toBe(false);
+    });
+
+    it('should handle whitespace', () => {
+      expect(Validator.isValidFrequency(' q')).toBe(false);
+      expect(Validator.isValidFrequency('q ')).toBe(false);
+      expect(Validator.isValidFrequency(' ')).toBe(false);
+    });
   });
 
   describe('validateTimestamp', () => {
@@ -110,6 +171,17 @@ describe('Validator', () => {
       expect(() => Validator.validateTimestamp(NaN)).toThrow('Invalid timestamp');
       expect(() => Validator.validateTimestamp(-1)).toThrow('Invalid timestamp');
     });
+
+    it('should handle boundary timestamps', () => {
+      // Test minimum acceptable date (Unix epoch)
+      expect(() => Validator.validateTimestamp(new Date('1970-01-01').getTime())).not.toThrow();
+      // Test maximum acceptable date
+      expect(() => Validator.validateTimestamp(new Date('2100-12-31').getTime())).not.toThrow();
+    });
+
+    it('should handle zero timestamp', () => {
+      expect(() => Validator.validateTimestamp(0)).not.toThrow();
+    });
   });
 
   describe('validateValue', () => {
@@ -120,6 +192,17 @@ describe('Validator', () => {
 
     it('should throw for invalid numbers', () => {
       expect(() => Validator.validateValue(NaN)).toThrow('Invalid value');
+    });
+
+    it('should handle boundary values', () => {
+      expect(() => Validator.validateValue(Number.MAX_SAFE_INTEGER)).not.toThrow();
+      expect(() => Validator.validateValue(Number.MIN_SAFE_INTEGER)).not.toThrow();
+      expect(() => Validator.validateValue(0)).not.toThrow();
+    });
+
+    it('should handle floating point precision', () => {
+      expect(() => Validator.validateValue(0.1 + 0.2)).not.toThrow();
+      expect(() => Validator.validateValue(1e-10)).not.toThrow();
     });
   });
 }); 

@@ -22,16 +22,26 @@ export class GDPAdapter {
       const fredResponse = await this.fredClient.getGDPData(params);
 
       // Validate response data
-      const observations = fredResponse.observations;
-      if (!observations || observations.length === 0) {
+      if (!fredResponse.observations || !Array.isArray(fredResponse.observations)) {
         throw new Error('No observations found');
       }
 
-      const latestObservation = observations[observations.length - 1];
-      const value = parseFloat(latestObservation.value);
+      if (fredResponse.observations.length === 0) {
+        throw new Error('No observations found');
+      }
 
-      // Validate numeric value
-      Validator.validateValue(value);
+      const latestObservation = fredResponse.observations[fredResponse.observations.length - 1];
+      
+      // Validate date first
+      if (!Validator.isValidDate(latestObservation.date)) {
+        throw new Error('Invalid timestamp');
+      }
+
+      // Then validate value
+      const value = parseFloat(latestObservation.value);
+      if (isNaN(value)) {
+        throw new Error('Invalid value');
+      }
 
       // Convert and validate timestamp
       const timestamp = new Date(latestObservation.date).getTime();

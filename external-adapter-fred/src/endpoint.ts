@@ -19,15 +19,25 @@ export class Endpoint {
     validator.validateRequiredParam('series_id');
     
     // Optional fields with validation
-    validator.validateOptionalParam('observation_start', Validator.isValidDate);
-    validator.validateOptionalParam('observation_end', Validator.isValidDate);
+    const start = validator.validateOptionalParam('observation_start', Validator.isValidDate);
+    const end = validator.validateOptionalParam('observation_end', Validator.isValidDate);
+    
+    // Validate date range if both dates are present
+    if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (endDate < startDate) {
+        throw new Error('End date must be after start date');
+      }
+    }
+
     validator.validateOptionalParam('units', Validator.isValidUnit);
     validator.validateOptionalParam('frequency', Validator.isValidFrequency);
 
     return {
       series_id: request.data.series_id,
-      observation_start: request.data.observation_start,
-      observation_end: request.data.observation_end,
+      observation_start: start,
+      observation_end: end,
       units: request.data.units,
       frequency: request.data.frequency,
     };
