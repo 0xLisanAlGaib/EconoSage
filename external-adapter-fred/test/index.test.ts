@@ -1,10 +1,9 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import type { MockedClass } from 'jest-mock';
 import request from 'supertest';
 import express from 'express';
 import { GDPAdapter } from '../src/adapter';
+import { MockedClass } from 'jest-mock';
 
-// Mock the GDPAdapter
 jest.mock('../src/adapter');
 
 describe('API Endpoints', () => {

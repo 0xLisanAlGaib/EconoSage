@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Source control
+.git
+.gitignore
+
+# Environment variables
+.env
+.env.*
+
+# Build output
+dist
+
+# Test files
+test
+coverage
+
+# IDE files
+.vscode
+.idea
+
+# Misc
+*.md
+.DS_Store 

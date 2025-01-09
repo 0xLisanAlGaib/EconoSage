@@ -1,10 +1,9 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import type { MockedClass } from 'jest-mock';
 import { GDPAdapter } from '../src/adapter';
 import { FREDClient } from '../src/utils/fred';
 import { AdapterRequest } from '../src/types/request';
+import { MockedClass } from 'jest-mock';
 
-// Mock the FREDClient
 jest.mock('../src/utils/fred');
 
 describe('GDPAdapter', () => {
@@ -12,7 +11,6 @@ describe('GDPAdapter', () => {
   const MockedFREDClient = FREDClient as MockedClass<typeof FREDClient>;
 
   beforeEach(() => {
-    // Clear all mocks before each test
     jest.clearAllMocks();
     adapter = new GDPAdapter();
   });

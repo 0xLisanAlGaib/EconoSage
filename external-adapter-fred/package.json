@@ -8,6 +8,8 @@
         "start": "node dist/index.js",
         "dev": "ts-node src/index.ts",
         "test": "jest",
+        "test:unit": "jest --selectProjects unit",
+        "test:integration": "jest --selectProjects integration",
         "lint": "eslint src/**/*.ts"
     },
     "dependencies": {
