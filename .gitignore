@@ -1,0 +1,40 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Chainlink node sensitive files
+
+
+# Build files
+dist/
+build/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.sqlite
+*.db
+
+# Coverage
+coverage/
+.coverage/
+
+# Hardhat
+cache/
+artifacts/
+
+# Foundry
+out/
+forge-cache/ 

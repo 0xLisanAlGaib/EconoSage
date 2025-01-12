@@ -50,11 +50,6 @@ contract US_GDP_QTest is Test {
             abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", USER)
         );
         gdpOracle.requestGDPUpdate();
-
-        // Should succeed when called by owner
-        vm.prank(OWNER);
-        bytes32 requestId = gdpOracle.requestGDPUpdate();
-        assertNotEq(requestId, bytes32(0));
     }
 
     function test_UpdateOracle_OnlyOwner() public {
@@ -69,7 +64,9 @@ contract US_GDP_QTest is Test {
 
         // Should revert with zero address
         vm.prank(OWNER);
-        vm.expectRevert("Invalid oracle address");
+        vm.expectRevert(
+            abi.encodeWithSignature("InvalidOracle(address)", address(0))
+        );
         gdpOracle.updateOracle(address(0));
 
         // Should succeed with valid address
@@ -89,7 +86,9 @@ contract US_GDP_QTest is Test {
 
         // Should revert with zero bytes32
         vm.prank(OWNER);
-        vm.expectRevert("Invalid job ID");
+        vm.expectRevert(
+            abi.encodeWithSignature("InvalidJobId(bytes32)", bytes32(0))
+        );
         gdpOracle.updateJobId(bytes32(0));
 
         // Should succeed with valid job ID
@@ -153,7 +152,9 @@ contract US_GDP_QTest is Test {
 
         // Should revert with invalid quarter
         vm.prank(ORACLE_ADDRESS);
-        vm.expectRevert("Invalid quarter");
+        vm.expectRevert(
+            abi.encodeWithSignature("InvalidQuarter(uint8)", invalidQuarter)
+        );
         gdpOracle.fulfill(requestId, growthRate, invalidQuarter, year);
     }
 

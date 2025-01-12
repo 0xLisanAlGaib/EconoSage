@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ChainlinkClient} from "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
-import {Chainlink} from "@chainlink/contracts/src/v0.8/Chainlink.sol";
-import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ChainlinkClient} from "../../../lib/chainlink/contracts/src/v0.8/ChainlinkClient.sol";
+import {ConfirmedOwner} from "../../../lib/chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {Chainlink} from "../../../lib/chainlink/contracts/src/v0.8/Chainlink.sol";
+import {LinkTokenInterface} from "../../../lib/chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
+import {Ownable} from "../../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /**
  * @title US_GDP_Q
- * @dev Minimal implementation of US GDP Quarterly Growth Rate Oracle
+ * @dev A contract that fetches and stores US GDP data using Chainlink oracles
  */
 contract US_GDP_Q is ChainlinkClient, Ownable {
     using Chainlink for Chainlink.Request;
@@ -31,6 +32,12 @@ contract US_GDP_Q is ChainlinkClient, Ownable {
         uint8 quarter,
         uint16 year
     );
+
+    // Custom errors
+    error InvalidQuarter(uint8 quarter);
+    error InvalidOracle(address oracle);
+    error InvalidJobId(bytes32 jobId);
+    error TransferFailed();
 
     /**
      * @dev Constructor sets initial values
@@ -60,12 +67,8 @@ contract US_GDP_Q is ChainlinkClient, Ownable {
         );
 
         // Set the URL to fetch data from FRED API
-        Chainlink._add(
-            req,
-            "get",
-            "https://api.stlouisfed.org/fred/series/observations"
-        );
-        Chainlink._add(req, "path", "value"); // Path to growth rate in the response
+        req._add("get", "https://api.stlouisfed.org/fred/series/observations");
+        req._add("path", "value"); // Path to growth rate in the response
 
         return _sendChainlinkRequestTo(oracle, req, ORACLE_PAYMENT);
     }
@@ -79,7 +82,7 @@ contract US_GDP_Q is ChainlinkClient, Ownable {
         uint8 _quarter,
         uint16 _year
     ) external recordChainlinkFulfillment(_requestId) {
-        require(_quarter >= 1 && _quarter <= 4, "Invalid quarter");
+        if (_quarter < 1 || _quarter > 4) revert InvalidQuarter(_quarter);
 
         latestGrowthRate = _growthRate;
         latestQuarter = _quarter;
@@ -93,7 +96,7 @@ contract US_GDP_Q is ChainlinkClient, Ownable {
      * @dev Updates the oracle address
      */
     function updateOracle(address _oracle) external onlyOwner {
-        require(_oracle != address(0), "Invalid oracle address");
+        if (_oracle == address(0)) revert InvalidOracle(_oracle);
         _setChainlinkOracle(_oracle);
         oracle = _oracle;
     }
@@ -102,7 +105,7 @@ contract US_GDP_Q is ChainlinkClient, Ownable {
      * @dev Updates the job ID
      */
     function updateJobId(bytes32 _jobId) external onlyOwner {
-        require(_jobId != bytes32(0), "Invalid job ID");
+        if (_jobId == bytes32(0)) revert InvalidJobId(_jobId);
         jobId = _jobId;
     }
 
@@ -111,9 +114,7 @@ contract US_GDP_Q is ChainlinkClient, Ownable {
      */
     function withdrawLink() external onlyOwner {
         LinkTokenInterface link = LinkTokenInterface(_chainlinkTokenAddress());
-        require(
-            link.transfer(msg.sender, link.balanceOf(address(this))),
-            "Unable to transfer"
-        );
+        bool success = link.transfer(msg.sender, link.balanceOf(address(this)));
+        if (!success) revert TransferFailed();
     }
 }
