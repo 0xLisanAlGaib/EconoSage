@@ -5,24 +5,23 @@ import {Script} from "forge-std/Script.sol";
 import {US_GDP_Q} from "../src/v0.8/econosage/US_GDP_Q.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract DeployUS_GDP_Q is Script {
-    function run() public returns (US_GDP_Q) {
+contract UpdateJobId is Script {
+    function run() public {
         // Load environment variables
-        address linkToken = 0x779877A7B0D9E8603169DdbD7836e478b4624789; // Sepolia LINK token address
-        address oracle = vm.envAddress("ORACLE_ADDRESS");
-        string memory jobIdStr = vm.envString("JOB_ID");
-        bytes32 jobId = stringToBytes32(jobIdStr);
         uint256 deployerPrivateKey = vm.envUint("DEV_ADMIN_PRIVATE_KEY");
+        address gdpContract = 0x8c2acF6Fb82305f19fbB3F60a53810b17df9BC9B;
+
+        // Convert UUID to bytes32 by taking first 32 characters
+        string memory jobIdStr = "8a5f1c49e1594111a152d73c42b605ef";
+        bytes32 jobId = stringToBytes32(jobIdStr);
 
         // Start broadcasting
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy US_GDP_Q contract
-        US_GDP_Q gdp = new US_GDP_Q(linkToken, oracle, jobId);
+        // Update job ID
+        US_GDP_Q(gdpContract).updateJobId(jobId);
 
         vm.stopBroadcast();
-
-        return gdp;
     }
 
     function stringToBytes32(

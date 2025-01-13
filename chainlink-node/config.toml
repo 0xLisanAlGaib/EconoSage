@@ -1,0 +1,17 @@
+[Log]
+Level = 'debug'
+
+[WebServer]
+AllowOrigins = '*'
+SecureCookies = false
+
+[Feature]
+LogPoller = true
+
+[[EVM]]
+ChainID = '11155111'
+
+[[EVM.Nodes]]
+Name = 'Sepolia'
+HTTPURL = 'https://eth-sepolia.g.alchemy.com/v2/1dPJVU-jX-0TaqdHT15UsrMYM-zKFygR'
+SendOnly = false

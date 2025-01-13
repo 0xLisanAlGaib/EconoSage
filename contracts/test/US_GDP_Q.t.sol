@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, console, Vm} from "forge-std/Test.sol";
 import {US_GDP_Q} from "../src/v0.8/econosage/US_GDP_Q.sol";
-import {MockLinkToken} from "@chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
+import {MockLinkToken} from "chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
 
 contract US_GDP_QTest is Test {
     US_GDP_Q public gdpOracle;

@@ -1,0 +1,6 @@
+{
+  "name": "fred-gdp-v2",
+  "url": "http://host.docker.internal:8081",
+  "confirmations": 0,
+  "minimumContractPayment": "0"
+} 

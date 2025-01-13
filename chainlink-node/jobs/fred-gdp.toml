@@ -1,0 +1,30 @@
+type = "directrequest"
+schemaVersion = 1
+name = "US GDP Growth Rate"
+evmChainID = 11155111
+contractAddress = "0x086C7dfa9B27d03520d1812E4772f31400E8f0Ac"
+maxTaskDuration = "0s"
+observationSource = """
+    decode_log   [type="ethabidecodelog"
+                 abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
+                 data="$(jobRun.logData)"
+                 topics="$(jobRun.logTopics)"]
+
+    decode_cbor  [type="cborparse" data="$(decode_log.data)"]
+    
+    fred_gdp     [type="bridge" name="fred-gdp" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": {\\"series_id\\": \\"GDPC1\\", \\"units\\": \\"pc1\\", \\"frequency\\": \\"q\\"}}"]
+
+    encode_data  [type="ethabiencode"
+                 abi="(int256 value)"
+                 data="{ \\"value\\": $(fred_gdp.result) }"]
+
+    encode_tx    [type="ethabiencode"
+                 abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 data)"
+                 data="{\\"requestId\\": $(decode_log.requestId), \\"payment\\": $(decode_log.payment), \\"callbackAddress\\": $(decode_log.callbackAddr), \\"callbackFunctionId\\": $(decode_log.callbackFunctionId), \\"expiration\\": $(decode_log.cancelExpiration), \\"data\\": $(encode_data)}"]
+
+    submit_tx    [type="ethtx" to="0x086C7dfa9B27d03520d1812E4772f31400E8f0Ac" data="$(encode_tx)"]
+
+    decode_log -> decode_cbor -> fred_gdp -> encode_data -> encode_tx -> submit_tx
+"""
+externalJobID = "8a5f1c49-e159-4111-a152-d73c42b605ef"
+minContractPaymentLinkJuels = "100000000000000000"

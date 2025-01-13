@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console, Vm} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {Oracle} from "../src/v0.8/econosage/Oracle.sol";
-import {MockLinkToken} from "@chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
+import {MockLinkToken} from "chainlink/contracts/src/v0.8/mocks/MockLinkToken.sol";
 
 contract OracleTest is Test {
     Oracle public oracle;

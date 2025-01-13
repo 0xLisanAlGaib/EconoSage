@@ -1,10 +1,11 @@
 type = "directrequest"
 schemaVersion = 1
 name = "US GDP Growth Rate"
-maxTaskDuration = "0s"
 evmChainID = 11155111
 contractAddress = "0x086C7dfa9B27d03520d1812E4772f31400E8f0Ac"
-minContractPaymentLinkJuels = "100000000000000000" # 0.1 LINK
+minIncomingConfirmations = 0
+minContractPaymentLinkJuels = "100000000000000000"
+
 observationSource = """
     decode_log   [type="ethabidecodelog"
                  abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
@@ -13,15 +14,13 @@ observationSource = """
 
     decode_cbor  [type="cborparse" data="$(decode_log.data)"]
     
-    fetch        [type="http" method=GET
-                 url="$(decode_cbor.get)"
-                 headers="{ \\"Content-Type\\": \\"application/json\\", \\"FRED-API-KEY\\": $(FRED_API_KEY) }"]
-    
-    parse        [type="jsonparse" path="$(decode_cbor.path)" data="$(fetch)"]
+    fetch        [type="bridge" name="fred-gdp-v2"]
+
+    parse        [type="jsonparse" path="data,0,value" data="$(fetch)"]
     
     encode_data  [type="ethabiencode"
-                 abi="(bytes32 requestId, int256 value, uint8 quarter, uint16 year)"
-                 data="{ \\"requestId\\": $(decode_log.requestId), \\"value\\": $(parse), \\"quarter\\": $(quarter), \\"year\\": $(year) }"]
+                 abi="(uint256 value)"
+                 data="{ \\"value\\": $(parse) }"]
                  
     encode_tx    [type="ethabiencode"
                  abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 data)"
@@ -31,4 +30,4 @@ observationSource = """
     submit_tx    [type="ethtx" to="0x086C7dfa9B27d03520d1812E4772f31400E8f0Ac" data="$(encode_tx)"]
 
     decode_log -> decode_cbor -> fetch -> parse -> encode_data -> encode_tx -> submit_tx
-""" 
+"""
